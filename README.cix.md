@@ -30,10 +30,14 @@ history. The root README also retains the upstream build instructions.
 
 ## Firmware downloads
 
-[1.3.1-cix-oc.1](https://github.com/cix-oss/edk2-cix/releases/tag/1.3.1-cix-oc.1)
+[1.3.1-cix-oc.2](https://github.com/cix-oss/edk2-cix/releases/tag/1.3.1-cix-oc.2)
 provides separate full-flash images for O6 and O6N and the matching build
 dependencies. Firmware reports its upstream version as 1.3.1; use
 `release-manifest.json` and `SHA256SUMS` to identify and verify each download.
+
+LITTLE voltage accepts direct numeric input: enter `0` to retain the native
+voltage floor, or `550–950 mV` in `10 mV` steps. Invalid entries display an
+input error.
 
 This is experimental firmware. Stability is not guaranteed for any overclock
 profile, and O6N hardware validation is pending. See
@@ -46,11 +50,11 @@ git clone --branch cix-community --recurse-submodules https://github.com/cix-oss
 cd edk2-cix
 ```
 
-For the release sources, check out tag `1.3.1-cix-oc.1` and run
+For the release sources, check out tag `1.3.1-cix-oc.2` and run
 `git submodule update --init --recursive`. Install the dependencies listed in
 `debian/control`; the CPU firmware builder requires native ARM64 Linux.
 
-Download `cix-sky1-cpu-oc-abi5-cppc.1.tar.xz` and `SHA256SUMS` from the release,
+Download `cix-sky1-cpu-oc-abi5-cppc.2.tar.xz` and `SHA256SUMS` from the release,
 verify the archive against its checksum, and extract it outside `src/`.
 The extracted directory contains the already signed BL1/BL2 pair and its
 source and payload identifiers. The matching proprietary PM is inside BL1;
@@ -58,9 +62,9 @@ its source and compiler are not needed to build the public UEFI.
 
 ```sh
 python3 tools/build_cpu_oc.py all \
-  --boot-chain /path/to/cix-sky1-cpu-oc-abi5-cppc.1 --preflight-only
+  --boot-chain /path/to/cix-sky1-cpu-oc-abi5-cppc.2 --preflight-only
 python3 tools/build_cpu_oc.py all \
-  --boot-chain /path/to/cix-sky1-cpu-oc-abi5-cppc.1 --build --jobs 4
+  --boot-chain /path/to/cix-sky1-cpu-oc-abi5-cppc.2 --build --jobs 4
 ```
 
 Use `O6` or `O6N` instead of `all` to build one board. Results are under
