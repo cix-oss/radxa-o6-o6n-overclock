@@ -8,5 +8,5 @@
 	branch = cix_p1_dev_2026q2
 [submodule "src/edk2-platforms"]
 	path = src/edk2-platforms
-	url = https://github.com/radxa/edk2-platforms.git
-	branch = cix_p1_dev_2026q2
+	url = https://github.com/cix-oss/edk2-platforms.git
+	branch = cix-community
