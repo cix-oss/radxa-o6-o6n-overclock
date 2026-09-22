@@ -1,5 +1,22 @@
 # Community CPU firmware for Radxa O6/O6N
 
+> [!WARNING]
+> **This project is not affiliated with, sponsored by, endorsed by, or supported
+> by CIX or Radxa.** References to those companies identify the hardware and
+> upstream sources only. This is not an official CIX or Radxa firmware release.
+>
+> **Overclocking and changing voltages can immediately and permanently damage
+> hardware.** Prolonged overclocking may accelerate hardware degradation and
+> shorten its service life. Flashing or using this firmware may also cause
+> crashes, data loss, or leave the device unable to boot.
+>
+> **Use entirely at your own risk.** The firmware is provided "AS IS", without
+> warranty of any kind. To the maximum extent permitted by applicable law,
+> this project, its maintainers, and its contributors accept no responsibility
+> or liability for hardware damage, data loss, loss of use, or any other loss
+> arising from flashing, configuring, or using this firmware. You are solely
+> responsible for your decision to use it and for your chosen settings.
+
 This branch adds CPU tuning for Radxa O6 and O6N to the public Radxa firmware
 baseline. It includes BIG/MID settings up to 3200 MHz, optional LITTLE settings
 up to 2400 MHz, PM admission reporting, and consistent CPPC performance units.
