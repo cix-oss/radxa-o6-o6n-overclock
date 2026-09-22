@@ -101,7 +101,9 @@ Unknown, partial or future records remain untouched with an error.
 
 LITTLE defaults to Native. Its separate Custom option requests a highest
 frequency of 1800..2400 MHz in 10 MHz steps and a minimum nominal voltage of
-0 (native) or 550..950 mV in 10 mV steps. The 2400 MHz ceiling is an
+0 (native) or 550..950 mV in 10 mV steps. Type the voltage directly into the
+numeric field; enter `0` to retain the native voltage floor. Invalid values
+are rejected with an input error. The 2400 MHz ceiling is an
 experimental software limit, not a hardware rating or a verified stable rate.
 
 PM preserves the complete native LITTLE OPP table, reference performance and
