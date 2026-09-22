@@ -22,3 +22,7 @@
 
 # intel-corporation.edk2code extension file
 /.edkCode
+
+# Local CPU firmware build copies and Python test caches
+/.build/
+__pycache__/

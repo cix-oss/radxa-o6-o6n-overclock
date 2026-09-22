@@ -1,0 +1,71 @@
+# Community CPU firmware for Radxa O6/O6N
+
+This branch adds CPU tuning for Radxa O6 and O6N to the public Radxa firmware
+baseline. It includes BIG/MID settings up to 3200 MHz, optional LITTLE settings
+up to 2400 MHz, PM admission reporting, and consistent CPPC performance units.
+These are software input limits, not guaranteed operating points.
+
+The public UEFI changes live in
+[cix-oss/edk2-platforms](https://github.com/cix-oss/edk2-platforms/tree/cix-community).
+This repository pins that fork and the unchanged public `edk2` and
+`edk2-non-osi` dependencies. Both community branches retain their upstream
+history. The root README also retains the upstream build instructions.
+
+## Firmware downloads
+
+[1.3.1-cix-oc.1](https://github.com/cix-oss/edk2-cix/releases/tag/1.3.1-cix-oc.1)
+provides separate full-flash images for O6 and O6N and the matching build
+dependencies. Firmware reports its upstream version as 1.3.1; use
+`release-manifest.json` and `SHA256SUMS` to identify and verify each download.
+
+This is experimental firmware. Stability is not guaranteed for any overclock
+profile, and O6N hardware validation is pending. See
+[CPU settings and limitations](docs/cpu-overclocking.md).
+
+## Build from the public sources
+
+```sh
+git clone --branch cix-community --recurse-submodules https://github.com/cix-oss/edk2-cix.git
+cd edk2-cix
+```
+
+For the release sources, check out tag `1.3.1-cix-oc.1` and run
+`git submodule update --init --recursive`. Install the dependencies listed in
+`debian/control`; the CPU firmware builder requires native ARM64 Linux.
+
+Download `cix-sky1-cpu-oc-abi5-cppc.1.tar.xz` and `SHA256SUMS` from the release,
+verify the archive against its checksum, and extract it outside `src/`.
+The extracted directory contains the already signed BL1/BL2 pair and its
+source and payload identifiers. The matching proprietary PM is inside BL1;
+its source and compiler are not needed to build the public UEFI.
+
+```sh
+python3 tools/build_cpu_oc.py all \
+  --boot-chain /path/to/cix-sky1-cpu-oc-abi5-cppc.1 --preflight-only
+python3 tools/build_cpu_oc.py all \
+  --boot-chain /path/to/cix-sky1-cpu-oc-abi5-cppc.1 --build --jobs 4
+```
+
+Use `O6` or `O6N` instead of `all` to build one board. Results are under
+`.build/cpu-oc/artifacts/`. The helper verifies and freezes dependency identities,
+generates the matching PM binding only in its build copy, and checks each image.
+Ordinary `make deb` uses upstream dependencies and does not enable Custom.
+
+## Checks
+
+```sh
+python3 -m unittest discover -s tools/tests -v
+CIX_RUN_HOST_C_TESTS=1 python3 -m unittest discover \
+  -s src/edk2-platforms/Platform/Radxa/Platforms/CIX/Sky1/Drivers/PmConfigUpdateDxe/Tests -v
+```
+
+Community CI runs these tests, including host C checks with UBSan.
+Passing these checks does not establish hardware stability.
+
+## Licensing
+
+Preserve each upstream component's notices. New community tools and UEFI files
+identify their license with SPDX headers; `debian/copyright` records exceptions
+to the wrapper's license. The proprietary PM and other non-OSI firmware do not
+inherit the public UEFI license. See the dependency bundle's `NOTICES.md` for
+the available provenance and licensing information.
