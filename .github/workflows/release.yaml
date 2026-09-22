@@ -1,5 +1,6 @@
 jobs:
   build:
+    if: "github.repository == 'radxa-pkg/edk2-cix'"
     outputs:
       distro: "${{ steps.distro_check.outputs.distro }}"
     runs-on: "ubuntu-latest"
@@ -64,7 +65,7 @@ jobs:
         fi | tee -a "$GITHUB_OUTPUT"
       shell: "bash"
   release:
-    if: "${{ github.event_name != 'pull_request' && needs.build.outputs.distro != 'UNRELEASED' }}"
+    if: "github.repository == 'radxa-pkg/edk2-cix' && (github.event_name != 'pull_request' && needs.build.outputs.distro != 'UNRELEASED')"
     needs: "build"
     permissions:
       contents: "write"

@@ -1,5 +1,6 @@
 jobs:
   rebase:
+    if: "github.repository == 'radxa-pkg/edk2-cix'"
     permissions:
       pull-requests: "write"
     runs-on: "ubuntu-latest"

@@ -1,0 +1,27 @@
+name: Community CPU firmware checks
+on:
+  push:
+    branches: [cix-community]
+  pull_request:
+    branches: [cix-community]
+  workflow_dispatch:
+permissions:
+  contents: read
+jobs:
+  public-tests:
+    runs-on: ubuntu-24.04
+    timeout-minutes: 15
+    steps:
+      - uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262 # v4
+        with:
+          persist-credentials: false
+      - name: Initialize the pinned platform sources
+        run: git submodule update --init src/edk2-platforms
+      - name: Check firmware tools and CPPC arithmetic
+        run: python3 -m unittest discover -s tools/tests -v
+      - name: Check CPU policy, state transitions and flash fault handling
+        env:
+          CIX_RUN_HOST_C_TESTS: '1'
+        run: >-
+          python3 -m unittest discover -v
+          -s src/edk2-platforms/Platform/Radxa/Platforms/CIX/Sky1/Drivers/PmConfigUpdateDxe/Tests

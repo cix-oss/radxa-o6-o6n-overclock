@@ -3,6 +3,7 @@ concurrency:
   group: "${{ github.workflow }}-${{ github.ref }}"
 jobs:
   build-doc:
+    if: "github.repository == 'radxa-pkg/edk2-cix'"
     permissions:
       id-token: "write"
       pages: "write"

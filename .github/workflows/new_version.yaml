@@ -1,5 +1,6 @@
 jobs:
   release:
+    if: "github.repository == 'radxa-pkg/edk2-cix'"
     permissions:
       contents: "write"
     runs-on: "ubuntu-latest"
