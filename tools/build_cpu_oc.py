@@ -29,7 +29,9 @@ HEADER = Path("edk2-platforms/Platform/Radxa/Platforms/CIX/Sky1/Drivers/PmConfig
 BOARDS = ("O6", "O6N")
 BUILD_TYPES = ("RELEASE", "DEBUG")
 CPU_OC_ABI = 6
-BUILD_INPUTS = ("tools/build_cpu_oc.py", "tools/firmware_contract.py")
+BUILD_INPUTS = ("tools/build_cpu_oc.py", "tools/firmware_contract.py",
+                "tools/memory_config.py", "tools/memory_tuning.py")
+MEMORY_HEADER = Path("edk2-platforms/Platform/Radxa/Platforms/CIX/Sky1/Drivers/MemoryTuningDxe/CixMemoryExpected.h")
 MARKER = "cix-public-cpu-oc-work-v1\n"
 EXPORTED_SKIP = {".git", "Build", "Conf", ".build", "__pycache__", ".pytest_cache"}
 OPENSSL_TEST_LINKS = {"boringssl", "pyca-cryptography", "krb5"}
@@ -302,6 +304,26 @@ def validate_contract(project, src, boards, override, require_cpu_oc):
               f"BL1 {contract['bl1']['sha256'][:12]}, BL2 {contract['bl2']['sha256'][:12]}")
 
 
+def validate_memory_mode(project, src, boards, override, enabled):
+    from firmware_contract import inspect_bl1
+    from memory_tuning import memory_contract
+    if enabled and override is None:
+        raise BuildError("--memory-tuning requires an explicit matched --boot-chain")
+    for board in boards:
+        bl1, _ = select_boot_chain(src, board, override)
+        data = bl1.read_bytes()
+        parsed = inspect_bl1(data)
+        se = next(entry for entry in parsed["components"] if entry["id"] == 1)
+        payload = data[se["offset"]:se["offset"] + se["size"]]
+        if enabled:
+            metadata = override / "memory-oc-source.json"
+            memory_contract(data, json.loads(metadata.read_text()))
+            if not (src / MEMORY_HEADER).is_file():
+                raise BuildError("Missing public memory driver and expected-SE header")
+        elif b"RADXA-MEM-OC-ABI" in payload:
+            raise BuildError("A memory OC SE requires --memory-tuning and its matching configuration")
+
+
 def stage_firmware(src, board, output, bl1, bl2, *, ec_size=0xE0000, fip_serial=None):
     firmware = output / "Firmwares"
     shutil.copytree(src / PACKAGE / "Firmwares", firmware)
@@ -343,7 +365,7 @@ def build_environment():
 
 
 def build_board(project, src, board, jobs, override, require_cpu_oc, run_dir, revisions,
-                *, build_type="RELEASE", contract_tool=None):
+                *, build_type="RELEASE", contract_tool=None, memory_tuning=False):
     if build_type not in BUILD_TYPES:
         raise BuildError(f"Unsupported EDK2 build type: {build_type}")
     contract_tool = contract_tool or project / "tools/firmware_contract.py"
@@ -373,6 +395,14 @@ def build_board(project, src, board, jobs, override, require_cpu_oc, run_dir, re
                               "fip_serial": int.from_bytes(bl2.read_bytes()[4:8], "little")}
     prepared["packaged_fip_serial"] = int(str(config["fip_version"]), 0)
     manifest.write_text(json.dumps(prepared, indent=2) + "\n")
+    memory_tool = contract_tool.parent / "memory_tuning.py"
+    memory_manifest = output / "memory-contract.json"
+    memory_header_bytes = None
+    if memory_tuning:
+        run([sys.executable, memory_tool, "prepare", "--bl1", firmware / "bootloader1.img",
+             "--metadata", override / "memory-oc-source.json", "--header", src / MEMORY_HEADER,
+             "--manifest", memory_manifest])
+        memory_header_bytes = (src / MEMORY_HEADER).read_bytes()
     for name in ("Keys", "certs"):
         shutil.copytree(package / name, output / name)
 
@@ -392,6 +422,8 @@ def build_board(project, src, board, jobs, override, require_cpu_oc, run_dir, re
                "EDK2_COMMIT_HASH": revisions.get("edk2", {}).get("commit", "source-archive")[:12],
                "EDK2_NON_OSI_COMMIT_HASH": revisions.get("edk2-non-osi", {}).get("commit", "source-archive")[:12],
                "EDK2_PLATFORMS_COMMIT_HASH": revisions.get("edk2-platforms", {}).get("commit", "source-archive")[:12]}
+    if memory_tuning:
+        defines["RADXA_MEM_OC_SUPPORT"] = "TRUE"
     command = ["build", "-a", "AARCH64", "-t", "GCC5", "-b", build_type, "-n", str(jobs),
                "-p", f"Platform/Radxa/Orion/{board}/{board}.dsc"]
     for name, value in defines.items():
@@ -402,6 +434,9 @@ def build_board(project, src, board, jobs, override, require_cpu_oc, run_dir, re
         run(["make", "-C", board_dir / config_name, "clean"], env=env)
         run(["make", "-C", board_dir / config_name, f"-j{jobs}"], env=env)
         shutil.copy2(board_dir / config_name / result, firmware / result)
+        if memory_tuning and config_name == "mem_config":
+            run([sys.executable, memory_tool, "config", "--input", firmware / result,
+                 "--output", firmware / result])
 
     # Retain the public OEM key/certificate pair used by the upstream signed chain.
     native = package / "AARCH64"
@@ -431,6 +466,12 @@ def build_board(project, src, board, jobs, override, require_cpu_oc, run_dir, re
     if (src / HEADER).read_bytes() != expected_header_bytes:
         raise BuildError("The expected PM header changed during the board build")
     (artifacts / "CixCpuOcExpected.h").write_bytes(expected_header_bytes)
+    if memory_tuning:
+        if (src / MEMORY_HEADER).read_bytes() != memory_header_bytes:
+            raise BuildError("The expected memory header changed during the board build")
+        (artifacts / "CixMemoryExpected.h").write_bytes(memory_header_bytes)
+        shutil.copy2(memory_manifest, artifacts / memory_manifest.name)
+        shutil.copy2(firmware / "memory_config.bin", artifacts / "memory_config.bin")
     for source in (image, manifest, layout_copy, validation):
         shutil.copy2(source, artifacts / source.name)
     for filename in ("Shell.efi", "VariableInfo.efi"):
@@ -441,6 +482,8 @@ def build_board(project, src, board, jobs, override, require_cpu_oc, run_dir, re
         shutil.copy2(src / "edk2-non-osi/Platform/CIX/Sky1/FlashTool" / filename, artifacts / filename)
     (artifacts / "sources.json").write_text(json.dumps(revisions, indent=2) + "\n")
     metadata = {"board": board, "build_type": build_type, "edk2_command": command,
+                "firmware_version": version,
+                "memory_tuning": memory_tuning,
                 "uefi_fd_sha256": hashlib.sha256(fd.read_bytes()).hexdigest(),
                 "uefi_fd_size": fd.stat().st_size,
                 "expected_pm_header_sha256": prepared["expected_pm_header_sha256"],
@@ -468,6 +511,8 @@ def arguments(argv=None):
     parser = argparse.ArgumentParser(description=__doc__)
     parser.add_argument("board", choices=("all", *BOARDS), nargs="?", default="all")
     parser.add_argument("--boot-chain", type=Path, help="matched signed BL1/BL2 directory; requires CPU OC ABI")
+    parser.add_argument("--memory-tuning", action="store_true",
+                        help="experimental memory ABI1; requires a matched SE/DDR dependency")
     parser.add_argument("--require-cpu-oc", action="store_true", help="reject a chain without the CPU OC ABI")
     parser.add_argument("--work-dir", type=Path, default=ROOT / ".build/cpu-oc")
     parser.add_argument("--jobs", type=positive, default=os.cpu_count() or 1)
@@ -487,6 +532,7 @@ def main(argv=None):
     require_cpu_oc = args.require_cpu_oc or override is not None
     check_sources(ROOT, boards)
     validate_contract(ROOT, ROOT / "src", boards, override, require_cpu_oc)
+    validate_memory_mode(ROOT, ROOT / "src", boards, override, args.memory_tuning)
     if not args.build:
         print("Preflight passed for " + ", ".join(boards) +
               f" ({args.build_type}). No build files created.")
@@ -520,13 +566,17 @@ def main(argv=None):
         if override is not None:
             frozen_chain = run_dir / "boot-chain-input"
             frozen_chain.mkdir()
-            for name in ("bootloader1.img", "bootloader2.img", "cpu-oc-source.json"):
+            dependency_files = ["bootloader1.img", "bootloader2.img", "cpu-oc-source.json"]
+            if args.memory_tuning:
+                dependency_files.append("memory-oc-source.json")
+            for name in dependency_files:
                 shutil.copy2(override / name, frozen_chain / name)
             override = frozen_chain
             revisions["cpu_oc_source"] = json.loads((override / "cpu-oc-source.json").read_text())
         # Recheck every frozen input, including stock dependencies that may
         # have changed in the working checkout after the initial preflight.
         validate_contract(run_dir / "build-tools", src, boards, override, require_cpu_oc)
+        validate_memory_mode(run_dir / "build-tools", src, boards, override, args.memory_tuning)
         contract_tool = run_dir / "build-tools/tools/firmware_contract.py"
         # A fresh copy excludes ignored objects; clean tracked BaseTools outputs too.
         clean_env = build_environment()
@@ -534,7 +584,8 @@ def main(argv=None):
         run(["make", "-C", src / "edk2/BaseTools", f"-j{args.jobs}", "Source/C"], env=clean_env)
         for board in boards:
             build_board(ROOT, src, board, args.jobs, override, require_cpu_oc, run_dir, revisions,
-                        build_type=args.build_type, contract_tool=contract_tool)
+                        build_type=args.build_type, contract_tool=contract_tool,
+                        memory_tuning=args.memory_tuning)
         next_link = work / (run_dir.name + "-artifacts")
         next_link.symlink_to((run_dir / "artifacts").relative_to(work), target_is_directory=True)
         next_link.replace(published)

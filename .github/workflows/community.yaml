@@ -1,4 +1,4 @@
-name: Community CPU firmware checks
+name: Community CPU and memory firmware checks
 on:
   push:
     branches: [cix-community]
@@ -17,7 +17,9 @@ jobs:
           persist-credentials: false
       - name: Initialize the pinned platform sources
         run: git submodule update --init src/edk2-platforms
-      - name: Check firmware tools and CPPC arithmetic
+      - name: Check firmware tools and native memory policy
+        env:
+          CIX_RUN_HOST_C_TESTS: '1'
         run: python3 -m unittest discover -s tools/tests -v
       - name: Check CPU policy, state transitions and flash fault handling
         env:
