@@ -154,9 +154,12 @@ class BuilderTests(unittest.TestCase):
     def test_default_preflight_cannot_reach_host_or_compiler(self):
         with mock.patch.object(builder, "check_sources"), \
              mock.patch.object(builder, "validate_contract"), \
+             mock.patch.object(builder, "validate_memory_mode") as memory_mode, \
              mock.patch.object(builder, "check_host", side_effect=AssertionError("build reached")), \
              mock.patch.object(builder, "snapshot_sources", side_effect=AssertionError("copy reached")):
             self.assertEqual(builder.main([]), 0)
+            memory_mode.assert_called_once_with(
+                builder.ROOT, builder.ROOT / "src", builder.BOARDS, None, False)
 
     def test_conflicting_build_options_fail(self):
         with self.assertRaisesRegex(builder.BuildError, "mutually exclusive"):
