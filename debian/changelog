@@ -1,3 +1,10 @@
+edk2-cix (1.3.2) main; urgency=medium
+
+  * Release community CPU tuning firmware as version 1.3.2.
+  * Hide the O6N LITTLE voltage input while retaining frequency tuning.
+
+ -- Clay Stan <claystan97@gmail.com>  Mon, 28 Sep 2026 16:25:54 +0800
+
 edk2-cix (1.3.1) main; urgency=medium
 
   [ github-actions[bot] ]

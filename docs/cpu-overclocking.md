@@ -50,8 +50,8 @@ mode and rejected requests that fall back to native tables. Checked 64-bit
 arithmetic avoids intermediate overflow and premature ratio truncation.
 
 Use the matching UEFI and PM pair from the same release. The ABI marker or
-base version 1.3.1 alone does not establish compatibility; verify the image
-and PM hashes against the release manifest.
+displayed firmware version alone does not establish compatibility; verify the
+image and PM hashes against the release manifest.
 
 ### Frequency and voltage requests
 
@@ -123,11 +123,13 @@ Unknown, partial or future records remain untouched with an error.
 ### Optional LITTLE tuning
 
 LITTLE defaults to Native. Its separate Custom option requests a highest
-frequency of 1800..2400 MHz in 10 MHz steps and a minimum nominal voltage of
-0 (native) or 550..950 mV in 10 mV steps. Type the voltage directly into the
+frequency of 1800..2400 MHz in 10 MHz steps. On O6, the minimum nominal voltage
+is 0 (native) or 550..950 mV in 10 mV steps. Type the voltage directly into the
 numeric field; enter `0` to retain the native voltage floor. Invalid values
-are rejected with an input error. The 2400 MHz ceiling is an
-experimental software limit, not a hardware rating or a verified stable rate.
+are rejected with an input error. O6N hides this voltage input and displays
+a fixed-supply notice; its LITTLE mode and frequency controls remain available.
+The 2400 MHz ceiling is an experimental software limit, not a hardware rating
+or a verified stable rate.
 
 PM preserves the complete native LITTLE OPP table, reference performance and
 sustained boot point. A higher frequency appends one top OPP; its performance
@@ -142,15 +144,16 @@ cap. With the normal +25 mV LITTLE margin, the menu's 950 mV ceiling requests
 fit the native configured fixed voltage; there are no voltage reads or writes.
 The supplied topology models it as 825 mV, so a 830 mV or higher minimum
 rejects the entire CPU profile, including otherwise valid BIG/MID requests.
-The experimental DSU option does not relax this fixed-supply check. UEFI
-reports an O6N-specific input/save error for such an active LITTLE request,
-and the boot driver refuses to write it to the PM sector. Existing values
-are never silently reduced; inactive values can remain when restoring Vendor
-or LITTLE Native. O6 retains its programmable-supply input range.
-Keep 0/native to request frequency tuning without an additional voltage floor.
-This retains the native voltage request; it does not calculate a suitable
+The experimental DSU option does not relax this fixed-supply check. The boot
+driver refuses to write such an active LITTLE request to the PM sector, even
+if it is retained from an older firmware. Restore setup defaults to clear an
+old unsupported voltage request, or select LITTLE Native. Existing values are
+never silently reduced. Fresh settings use 0/native for LITTLE frequency
+tuning without an additional voltage floor. This retains the native voltage
+request; it does not calculate a suitable
 overclocking voltage automatically. Boot and workload stability still depend
 on the selected frequency/voltage combination and the individual board.
+O6 retains its programmable-supply input range.
 Only complete profile acceptance extends the LITTLE PLL and DPM software limits.
 
 During Custom S3 resume, PM checks programmable regulator readback and
