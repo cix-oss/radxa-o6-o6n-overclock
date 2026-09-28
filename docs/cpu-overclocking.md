@@ -19,7 +19,7 @@ Other PCB revisions need their own configuration check. O6N is RS602; RS601
 refers to O6T. ABI capability and payload-hash checks identify the implementation.
 
 The stock PM firmware shipped with the pinned `edk2-non-osi` dependency does
-not implement the required CPU OC ABI 5. The ordinary build keeps Custom
+not implement the required CPU OC ABI 6. The ordinary build keeps Custom
 unavailable. A build with CPU overclocking enabled requires the matching signed
 BL1/BL2 dependency from the community release, including its PM implementation.
 
@@ -38,7 +38,7 @@ Existing foreign full or partial OPP configurations are reported and left untouc
 
 ### CPU performance units
 
-The settings and ABI5 request tables use MHz and mV. The PM tables published
+The settings and CPU request tables use MHz and mV. The PM tables published
 through SCMI and CPPC use the native performance scale shared by the different
 CPU types. Accepted BIG/MID Custom tables must retain that normalization and
 the corresponding reference performance, as LITTLE already does. Physical
@@ -72,12 +72,32 @@ For example, 980 requests 1010 mV and can pass this bound; 1000 requests
 These values follow the selected source policy and configured fixed supplies;
 they are neither measured voltages nor a hardware rating. The shared 1250 mV
 menu ceiling remains available for compatible programmable topologies such
-as O6. An incompatible O6N request is rejected, not silently reduced.
+as O6. With the experimental option disabled, an incompatible O6N request is
+rejected, not silently reduced.
+
+O6N has a default-off **O6N relaxed DSU voltage gap (experimental)** option
+on the CPU settings page. With the overall CPU profile set to Custom, enabling
+it permits BIG/MID rails up to 465 mV above the configured 815 mV DSU supply.
+For example, a 1100 mV CPU entry plus the normal 30 mV margin requests 1130 mV,
+315 mV above DSU. This can pass the experimental policy; it is not a stable
+operating-point recommendation. The 1250 mV nominal CPU ceiling and 1280 mV
+programmed cap remain in force. DSU-above-CPU differences remain limited to
+200 mV. DSU and LITTLE voltages remain fixed, and DSU frequency remains native.
+
+**This option exceeds the original voltage-gap policy and may damage hardware
+or cause instability. The 465 mV allowance is a software limit, not a verified
+electrical rating.** PM accepts it only with the matching native O6N regulator
+topology and all CPU supplies present. O6 cannot enable it. Startup validation,
+runtime transitions and S3 voltage restoration use the same selected policy.
+Disable the option to restore the original gap policy, or select Vendor to
+restore native CPU settings. A high-voltage profile may be rejected after
+disabling the option.
 
 PM validates regulator topology, margins and quantization before accepting the
 profile. At runtime it chooses compatible CPU and DSU targets and moves the
-rails in steps that preserve the 200 mV nominal and programmed-voltage
-difference. Every physically available CPU supply participates, even if its
+rails in steps that preserve the selected nominal and programmed-voltage
+gap limits. The default limit is 200 mV in either direction. Every physically
+available CPU supply participates, even if its
 cores are offline. Fixed or otherwise incompatible rails can make a profile
 unavailable on a particular SKU. Voltages can return toward the lower requests
 as higher requirements disappear. The 1500 MHz / 790 mV startup entry remains
@@ -86,14 +106,17 @@ are retained. Package-power controller enablement remains a board policy, and
 the inherited power models need validation for coupled voltage changes; static
 OPP power figures do not describe every coupled voltage state.
 
-ABI5 writes selector `0xC1`. BIG/MID tables retain their existing layout;
+ABI6 writes selector `0xC1` for the default policy or `0xC2` for the explicit
+O6N experimental policy. BIG/MID tables retain their existing layout;
 domain 2 optionally carries a one-entry LITTLE request descriptor. The PM
 expands that descriptor against its actual native table. Older `0xC0` four-domain
 profiles remain readable for migration with their original 2600 MHz MID limit.
-The new UEFI requires ABI5 capability and the exact installed PM hash; older
-ABI1..4 payloads cannot enable it. The settings variable grows from 273 to 278
-bytes by appending LITTLE fields, preserving all old field offsets. Exact
-revision-1 settings migrate with LITTLE set to Native. Old Vendor records may
+The new UEFI requires ABI6 capability and the exact installed PM hash; older
+ABI1..5 payloads cannot enable it. Revision 3 appends a one-byte experimental
+policy field to the 278-byte revision-2 variable, preserving all previous
+field offsets. Exact revision-1 and revision-2 settings migrate with the
+experiment disabled. Revision-1 records also initialize LITTLE to Native;
+revision-2 records retain their LITTLE settings. Old Vendor records may
 retain inactive edits; old Custom records must satisfy their original limits.
 Unknown, partial or future records remain untouched with an error.
 
@@ -128,7 +151,7 @@ During Custom S3 resume, PM checks programmable regulator readback and
 coordinates voltage restoration before restoring clocks. Fixed supplies use
 their native configured voltage without I2C reads or writes. AU46xx readback
 uses the existing LINEAR11 decoder; the native less-than-10 mV consistency
-allowance does not relax the rail caps or the 200 mV gap. Coarse or inconsistent
+allowance does not relax the rail caps or the selected gap limits. Coarse or inconsistent
 readback can therefore prevent resume. A failed read, write or voltage check
 prevents clock restoration. Actual fixed voltages and readback behavior still
 need measurement on each board.
@@ -150,7 +173,7 @@ is no automatic rollback for an unstable configuration that prevents boot.
 ### Boot result interface
 
 The read-only SCMI vendor protocol `0x80`, message `3`, accepts an empty request.
-Its response is seven little-endian 32-bit words: SCMI status, CPU OC ABI (`5`),
+Its response is seven little-endian 32-bit words: SCMI status, CPU OC ABI (`6`),
 boot state, rejection reason, original PMCF length, CRC1 and CRC2. Protocol
 discovery messages `0`, `1`, and `2` are supported, with protocol version 1.0.
 UEFI uses the existing platform MTL transport and checks response length,
@@ -161,11 +184,12 @@ configuration; they do not provide cryptographic attestation.
 PM states are `0` uninitialized, `1` Custom inactive, `2` accepted, and `3`
 rejected. Rejection reasons are `1` invalid PMCF, `2` invalid CPU table,
 `3` external PMIC override, `4` debug guardband, `5` native rail/table,
-`6` requested voltage, `7` unavailable boot domains, and `8` coupled voltage
-range or transition. `0` means no rejection. PM reports acceptance only after
+`6` requested voltage, `7` unavailable boot domains, `8` coupled voltage
+range or transition, and `9` an experimental policy incompatible with the
+native regulator topology. `0` means no rejection. PM reports acceptance only after
 publishing the selected CPU tables. UEFI's seven-byte, boot-only status
-variable remains revision 2; the persistent tuning variable is revision 2
-and 278 bytes.
+variable remains revision 2; the persistent tuning variable is revision 3
+and 279 bytes.
 
 ## Community release
 
@@ -191,7 +215,7 @@ Adding `--require-cpu-oc` rejects stock or unidentified PM inputs.
 A compatible boot-chain directory must contain:
 
 - `bootloader1.img`: a signed BL1 containing a PM with the explicit
-  `CIX_PM_CPU_OC_ABI_5` capability marker and the CPU table behavior described above.
+  `CIX_PM_CPU_OC_ABI_6` capability marker and the CPU table behavior described above.
 - `bootloader2.img`: the matching signed BL2.
 - `cpu-oc-source.json`: the exact source and payload identities below.
 
@@ -203,7 +227,7 @@ building firmware:
 {
   "schema": 1,
   "build_status": "built",
-  "cpu_oc_abi": 5,
+  "cpu_oc_abi": 6,
   "pm_source_revision": "<full 40-character source commit>",
   "pm_patch_sha256": "<64-character SHA-256 identifying the PM patch>",
   "pm_sha256": "<64-character SHA-256 of the PM component inside BL1>",
@@ -255,8 +279,9 @@ CIX_RUN_HOST_C_TESTS=1 python3 -m unittest discover \
   -s src/edk2-platforms/Platform/Radxa/Platforms/CIX/Sky1/Drivers/PmConfigUpdateDxe/Tests -v
 ```
 
-The ABI5 host C harnesses cover ABI0..4 rejection, ABI5 reporting, migration,
-LITTLE descriptor encoding, transport failures and stale boot configuration.
+The host C harnesses cover ABI0..5 rejection, ABI6 reporting, default-off
+migration, O6N policy selection and O6 rejection, LITTLE descriptor encoding,
+transport failures and stale boot configuration.
 The LITTLE encoder covers all 2562 legal frequency/voltage pairs.
 
 Compilation and host tests do not establish board stability. Board qualification

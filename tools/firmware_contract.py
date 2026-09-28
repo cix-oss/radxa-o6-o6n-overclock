@@ -24,9 +24,9 @@ CBFF_ENTRIES_OFFSET = 2540
 CBFF_ENTRY = struct.Struct("<6I")
 BL1_MAX_SIZE = 0x100000
 BL2_MAX_SIZE = 0x100000
-CPU_OC_ABI = 5
+CPU_OC_ABI = 6
 CPU_OC_MARKERS = {version: f"CIX_PM_CPU_OC_ABI_{version}\x00".encode()
-                  for version in (1, 2, 3, 4, 5)}
+                  for version in (1, 2, 3, 4, 5, 6)}
 CPU_OC_MARKER = CPU_OC_MARKERS[CPU_OC_ABI]
 FIP_MAGIC = 0xAA640001
 FLASH_SIZE = 0x800000
@@ -144,7 +144,7 @@ def boot_chain(bl1: bytes, bl2: bytes, require_cpu_oc: bool = False) -> dict:
     second = inspect_bl2(bl2)
     pm = next(entry for entry in first["components"] if entry["id"] == 2)
     if require_cpu_oc and pm["cpu_oc_abi"] != CPU_OC_ABI:
-        raise ContractError("PM lacks CPU OC ABI 5 for MID 3200 MHz and optional LITTLE tuning; "
+        raise ContractError("PM lacks CPU OC ABI 6 for optional O6N DSU voltage-gap relaxation; "
                             "a compatible signed boot chain is required")
     return {"schema": 1, "cpu_oc_abi": pm["cpu_oc_abi"], "bl1": first,
             "bl2": second, "pm": pm}

@@ -69,7 +69,7 @@ class IdentityTests(unittest.TestCase):
         self.assertEqual(parsed["pm"]["offset"], 8192)
         self.assertEqual(parsed["pm"]["sha256"], contract.sha256(bl1()[8192:12288]))
         header = contract.expected_header(parsed)
-        self.assertIn("#define CIX_CPU_OC_PM_ABI 5U", header)
+        self.assertIn("#define CIX_CPU_OC_PM_ABI 6U", header)
         self.assertIn("#define CIX_CPU_OC_BL1_SIZE 16384U", header)
 
     def test_stock_is_inspectable_but_not_oc_capable(self):
@@ -77,8 +77,8 @@ class IdentityTests(unittest.TestCase):
         with self.assertRaisesRegex(contract.ContractError, "lacks CPU OC"):
             contract.boot_chain(bl1(False), bl2(), True)
 
-    def test_legacy_pm_cannot_enable_mid_3200_or_little_tuning(self):
-        for version in (1, 2, 3, 4):
+    def test_legacy_pm_cannot_enable_relaxed_dsu(self):
+        for version in (1, 2, 3, 4, 5):
             with self.subTest(version=version):
                 data = bytearray(bl1(False))
                 marker = contract.CPU_OC_MARKERS[version]
@@ -86,7 +86,7 @@ class IdentityTests(unittest.TestCase):
                 parsed = contract.boot_chain(data, bl2())
                 self.assertEqual(parsed["cpu_oc_abi"], version)
                 self.assertIn(f"CIX_CPU_OC_PM_ABI {version}U", contract.expected_header(parsed))
-                with self.assertRaisesRegex(contract.ContractError, "ABI 5"):
+                with self.assertRaisesRegex(contract.ContractError, "ABI 6"):
                     contract.boot_chain(data, bl2(), True)
 
     def test_conflicting_capabilities_are_rejected(self):
@@ -148,7 +148,7 @@ class IdentityTests(unittest.TestCase):
 
 class BuilderTests(unittest.TestCase):
     def test_builder_and_contract_require_the_same_current_abi(self):
-        self.assertEqual(builder.CPU_OC_ABI, 5)
+        self.assertEqual(builder.CPU_OC_ABI, 6)
         self.assertEqual(builder.CPU_OC_ABI, contract.CPU_OC_ABI)
 
     def test_default_preflight_cannot_reach_host_or_compiler(self):
@@ -198,7 +198,7 @@ class BuilderTests(unittest.TestCase):
     def test_override_provenance_matches_each_payload(self):
         parsed = contract.boot_chain(bl1(), bl2(), True)
         record = {
-            "schema": 1, "build_status": "built", "cpu_oc_abi": 5,
+            "schema": 1, "build_status": "built", "cpu_oc_abi": 6,
             "pm_source_revision": "a" * 40,
             "pm_patch_sha256": "b" * 64, "pm_sha256": parsed["pm"]["sha256"],
             "bl1_sha256": parsed["bl1"]["sha256"], "bl2_sha256": parsed["bl2"]["sha256"],
@@ -220,7 +220,7 @@ class BuilderTests(unittest.TestCase):
                 manifest.write_text(json.dumps(changed))
                 with self.subTest(record=changed), self.assertRaises(builder.BuildError):
                     builder.check_cpu_oc_provenance(path, parsed)
-            for version in (1, 2, 3, 4):
+            for version in (1, 2, 3, 4, 5):
                 manifest.write_text(json.dumps(dict(record, cpu_oc_abi=version)))
                 with self.subTest(legacy_abi=version), self.assertRaises(builder.BuildError):
                     builder.check_cpu_oc_provenance(path, dict(parsed, cpu_oc_abi=version))
@@ -289,7 +289,7 @@ class ImageTests(unittest.TestCase):
             image, layout, parsed = self.fixture(path)
             result = contract.verify_image(image, layout, parsed, "O6N", path)
             self.assertEqual(result["board"], "O6N")
-            self.assertEqual(result["cpu_oc_abi"], 5)
+            self.assertEqual(result["cpu_oc_abi"], 6)
 
     def test_bl1_directory_padding_cannot_defeat_runtime_binding(self):
         with tempfile.TemporaryDirectory() as temporary:
