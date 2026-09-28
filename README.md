@@ -33,14 +33,14 @@ may damage hardware; see [CPU settings and limitations](docs/cpu-overclocking.md
 
 ## Firmware downloads
 
-[1.3.1-cix-oc.3](https://github.com/cix-oss/radxa-o6-o6n-overclock/releases/tag/1.3.1-cix-oc.3)
+[1.3.1-cix-oc.4](https://github.com/cix-oss/radxa-o6-o6n-overclock/releases/tag/1.3.1-cix-oc.4)
 provides separate full-flash images for O6 and O6N and the matching build
 dependencies. Download the image for your board:
 
 | Board | Firmware image |
 | --- | --- |
-| Radxa O6 | `o6-1.3.1-cix-oc.3.bin` |
-| Radxa O6N | `o6n-1.3.1-cix-oc.3.bin` |
+| Radxa O6 | `o6-1.3.1-cix-oc.4.bin` |
+| Radxa O6N | `o6n-1.3.1-cix-oc.4.bin` |
 
 Firmware reports its upstream version as 1.3.1; use `release-manifest.json` and
 `SHA256SUMS` to identify and verify each download.
@@ -56,7 +56,7 @@ git clone --branch cix-community --recurse-submodules https://github.com/cix-oss
 cd radxa-o6-o6n-overclock
 ```
 
-For the release sources, check out tag `1.3.1-cix-oc.3` and run
+For the release sources, check out tag `1.3.1-cix-oc.4` and run
 `git submodule update --init --recursive`. Install the dependencies listed in
 `debian/control`; the CPU firmware builder requires native ARM64 Linux.
 

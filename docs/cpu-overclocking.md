@@ -140,7 +140,13 @@ uses at least the native top voltage request and retains the 980 mV programmed
 cap. With the normal +25 mV LITTLE margin, the menu's 950 mV ceiling requests
 975 mV before coupling. On O6N's fixed LITTLE supply, the minimum request must
 fit the native configured fixed voltage; there are no voltage reads or writes.
-The supplied topology models it as 825 mV, so a 830 mV minimum would reject.
+The supplied topology models it as 825 mV, so a 830 mV or higher minimum
+rejects the entire CPU profile, including otherwise valid BIG/MID requests.
+The experimental DSU option does not relax this fixed-supply check. UEFI
+reports an O6N-specific input/save error for such an active LITTLE request,
+and the boot driver refuses to write it to the PM sector. Existing values
+are never silently reduced; inactive values can remain when restoring Vendor
+or LITTLE Native. O6 retains its programmable-supply input range.
 Keep 0/native to request frequency tuning without an additional voltage floor.
 This retains the native voltage request; it does not calculate a suitable
 overclocking voltage automatically. Boot and workload stability still depend
